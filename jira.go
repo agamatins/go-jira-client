@@ -53,6 +53,7 @@ func (j *Jira) buildAndExecRequest(method string, url string, data io.Reader) []
 	}
 
 	resp, err := j.Client.Do(req)
+
 	if err != nil {
 		fmt.Printf("%s", err)
 	}

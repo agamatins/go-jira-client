@@ -9,10 +9,12 @@ import (
 	"time"
 )
 
+
 const (
 	issue_worklog_url = "/worklog"
 	issue_url = "/issue"
 	search_url = "/search"
+	transitions_url = "/transitions"
 )
 
 
@@ -41,6 +43,48 @@ const (
 
     rsp := jira.CreateIssue(fields)
 */
+
+//TODO: change query creation
+func (j *Jira) EditIssue(id string, fields *IssueFields) {
+	jsonFields, err := json.Marshal(fields)
+	if err != nil{
+		fmt.Printf("Error marshaling fields: %s\n", err)
+		return
+	}
+	url := j.BaseUrl + j.ApiPath + issue_url + "/" + id
+	fmt.Println("fields=" + string(jsonFields))
+	j.buildAndExecRequest("PUT", url, strings.NewReader("{ 'fields':" + string(jsonFields) + "}"))
+}
+
+func (j *Jira) SetStatus(id string, transitionId string, resolutionName string){
+	url := j.BaseUrl + j.ApiPath + issue_url + "/" + id + transitions_url
+	//query := "{{\"transition\": { \"id\": \"" + transitionId + "\"}}, \"fields\":{ \"resolution\":{ \"name\": \"" + resolution + "\"}}}"
+	query := make(map[string]interface{})
+
+	transition := make(map[string]interface{})
+	transition["id"] = transitionId
+
+	query["transition"] = transition
+
+	if resolutionName != ""{
+		resolution := make(map[string]interface{})
+		resolution["name"] = resolutionName
+
+		fields := make(map[string]interface{})
+		fields["resolution"] = resolution
+
+		query["fields"] = fields
+	}
+
+	postData, err := json.Marshal(query)
+	if err != nil {
+		fmt.Printf("Error marshaling fields: %s\n", err)
+		return
+	}
+
+	j.buildAndExecRequest("POST", url, strings.NewReader(string(postData)))
+}
+
 func (j *Jira) CreateIssue(fields *IssueFields) (rsp IssueCreateResponse) {
 
 	// Support custom fields.
@@ -165,6 +209,8 @@ func (j *Jira) SearchIssues(jql string, startAt int, maxResults int, validateQue
 
 	requestUrl += "?jql=" + url.QueryEscape(jql)
 
+
+
 	if startAt > 0 {
 		requestUrl += fmt.Sprintf("&startAt=%d", startAt)
 	}
@@ -184,6 +230,8 @@ func (j *Jira) SearchIssues(jql string, startAt int, maxResults int, validateQue
 	if expand != "" {
 		requestUrl += "&expand=" + expand
 	}
+
+	fmt.Println("query=" + requestUrl)
 
 	if j.Debug {
 		fmt.Println(requestUrl)
@@ -322,6 +370,7 @@ type IssueFields struct {
 	Status       *IssueStatus            `json:"status"`
 	SprintPoints float32                 `json:"customfield_10004"`
 	Labels       []string                `json:"labels"`
+	Attachment	 []*Attachment			 `json:"attachment"`
 	Custom       map[string]interface{}
 }
 
@@ -357,4 +406,13 @@ type IssueWorklog struct {
 	TimeSpent     string `json:"timeSpent"`
 	Author        IssueAuthor `json:"author"`
 	UpdatedAuthor IssueAuthor `json:"updateAuthor"`
+}
+
+type Attachment struct {
+	Self		string	`json:"self"`
+	Id			string	`json:"id"`
+	FileName	string	`json:"filename"`
+	Size		int		`json:"size"`
+	MimeType	string	`json:"mimeType"`
+	Content		string	`json:"content"`
 }
